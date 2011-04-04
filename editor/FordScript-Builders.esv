@@ -1,0 +1,23 @@
+
+module FordScript-Builders
+
+imports FordScript-Builders.generated
+
+builders
+                                                                      
+  // This file can be used for custom analysis and builder rules.     
+  //                                                                  
+  // See the imported file for a brief introduction and examples.     
+
+builders
+                                                                                                                               
+  provider                  : include/fordscript.ctree                                                                         
+  provider                  : include/fordscript-java.jar                                                                      
+                                                                                                                               
+  observer                  : editor-analyze                                                                                   
+                                                                                                                               
+  builder                   : "Convert to JavaScript" = generate-jsfax (openeditor)
+  builder                   : "Show abstract syntax (for selection)" = generate-aterm (openeditor) (meta) (source)
+  builder                   : "Mark types (for selection)" = generate-marked (openeditor) (meta) (source)
+                                                                                                                               
+  // on save: generate-java                                                                                                    

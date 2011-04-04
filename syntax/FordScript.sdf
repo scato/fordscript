@@ -1,0 +1,55 @@
+%% Grammar for the FordScript language
+%% By default, based on an example "entities" syntax
+module FordScript
+
+imports js/Jsfax
+
+exports
+
+  context-free start-symbols
+    Start
+
+  lexical syntax
+    %% unsure color-coding
+    "undefined" -> KEYWORD
+  
+  context-free syntax
+    %% unsure color-coding
+    "undefined" -> Exp {cons("FSUndefined")}
+
+    %% lambda expressions
+    "function" "(" {Identifier ","}* ")" Exp          -> Exp {cons("FSLambdaExp")}
+    "function" "(" {Identifier ","}* ")" ":" Type Exp -> Exp {cons("FSTypedLambdaExp")}
+
+    %% type annotations
+    ID          -> Type {cons("FSType")}
+    
+    ID          -> Identifier {cons("FSIdentifier")}
+    ID ":" Type -> Identifier {cons("FSTypedIdentifier")}
+    
+    "var" {Identifier ","}* ";"                                    -> VarStat {cons("JSVarDeclNoInit"), prefer}
+    "var" Identifier "=" Exp ";"                                   -> VarStat {cons("JSVarDecl"), prefer}
+    VarStat -> Stat
+    
+    "function" ID "(" {Identifier ","}* ")" "{" Stat* "}"          -> FuncStat {cons("JSFunctionDecl"), prefer}
+    "function" ID "(" {Identifier ","}* ")" ":" Type "{" Stat* "}" -> FuncStat {cons("FSTypedFunctionDecl"), prefer}
+    FuncStat -> Exp
+    
+    "function" "(" {Identifier ","}* ")" "{" Stat* "}"             -> Exp {cons("JSFunctionExp"), prefer}
+    "function" "(" {Identifier ","}* ")" ":" Type "{" Stat* "}"    -> Exp {cons("FSTypedFunctionExp"), prefer}
+    
+    %% classes
+    "class" ID "{" ClassBodyDecl* "}"                -> Stat {cons("FSClassDecl")}
+    "class" ID "extends" Type "{" ClassBodyDecl* "}" -> Stat {cons("FSExtendedClassDecl")}
+    VarStat  -> ClassBodyDecl
+    FuncStat -> ClassBodyDecl
+    
+    %% type augmentation
+    "augment" ID "{" ClassBodyDecl* "}" -> Stat {cons("FSClassAugmentation")}
+
+  context-free priorities
+    Exp "in" Exp            -> Exp
+  > {
+      "function" "(" {Identifier ","}* ")" Exp          -> Exp
+      "function" "(" {Identifier ","}* ")" ":" Type Exp -> Exp
+    }

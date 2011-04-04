@@ -1,0 +1,22 @@
+module complete
+
+imports
+//  libstratego-lib
+//  libstratego-gpp
+//  libstratego-aterm
+  include/FordScript
+  lib/editor-common.generated
+  check
+  type
+
+rules
+  editor-complete-proposals:
+    FSType(COMPLETION(prefix)) -> proposals
+    where
+      proposals := <all-keys-GetClass>
+  
+  editor-complete-proposals:
+    JSFieldAccess(var,COMPLETION(prefix)) -> proposals
+    where
+      proposals := <collect-members> <get-type> var
+

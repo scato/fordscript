@@ -1,0 +1,83 @@
+module generate
+
+imports
+  libstratego-lib
+  libstratego-gpp
+  libstratego-aterm
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+
+//  to-jsfax = innermost(debug(!"in:  "); desugar; debug(!"out: "))
+  to-jsfax = innermost(desugar)
+  
+  desugar:
+    FSLambdaExp(x*, exp) -> JSFunctionExp(x*, [JSReturn(exp)])
+  
+  desugar:
+    FSTypedLambdaExp(x*, t, exp) -> FSLambdaExp(x*, exp)
+  
+  desugar:
+    FSTypedIdentifier(i, t) -> FSIdentifier(i)
+  
+  desugar:
+    FSTypedFunctionDecl(i, x*, t, s*) -> JSFunctionDecl(i, x*, s*)
+  
+  desugar:
+    FSTypedFunctionExp(x*, t, s*) -> JSFunctionExp(x*, s*)
+
+  member-to-constructor(|c):
+    JSFunctionDecl("constructor", x*, s*) -> JSFunctionDecl(c, x*, s*)
+    
+  class-to-constructor(|c):
+    s* -> constructor
+    with
+      if <getfirst(member-to-constructor(|c))> s* then
+        constructor := <getfirst(member-to-constructor(|c))> s*
+      else
+        constructor := JSFunctionDecl(c, [], [])
+      end
+  
+  desugar:
+    FSClassDecl(c, s*) -> [
+      <class-to-constructor(|c)> s*,
+      <map(try(class-to-prototype(|c)))> s*
+    ]
+  
+  desugar:
+    FSExtendedClassDecl(c, e, s*) -> [
+      <class-to-constructor(|c)> s*,
+      
+      // Ctor.prototype = (function(s) {
+      //   function c() {}
+      //   c.prototype = Super.prototype;
+      //   return new c();
+      // })();
+      JSAssign(
+	      JSLFieldAccess(JSVar(c), "prototype") , "=", JSCall(JSBracket(
+          JSFunctionExp([], [
+          	JSFunctionDecl("c", [], []),
+          	JSAssign(JSLFieldAccess(JSVar("c"), "prototype"), "=", JSFieldAccess(e, "prototype")),
+          	JSReturn(JSNew(JSVar("c"), []))
+          ]
+        )), [])
+	    ),
+	    
+      <map(try(class-to-prototype(|c)))> s*
+    ]
+  
+  desugar:
+    FSClassAugmentation(c, s*) ->
+      <map(try(class-to-prototype(|c)))> s*
+  
+  class-to-prototype(|c):
+    JSVarDecl(FSIdentifier(p), v) ->
+      JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", v)
+  
+  class-to-prototype(|c):
+    JSVarDeclNoInit(i*) -> []
+  
+  class-to-prototype(|c):
+    JSFunctionDecl(p, x*, s*) ->
+      JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", JSFunctionExp(x*, s*))

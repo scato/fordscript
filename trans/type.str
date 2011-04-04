@@ -1,0 +1,52 @@
+module type
+
+imports
+//  libstratego-lib
+//  libstratego-gpp
+//  libstratego-aterm
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+  get-type:
+    JSVar(i){Type(t)} -> t
+  
+  mark-types = mark-vars
+  
+  // mark-type:
+  //   FSUndefined() -> FSUndefined() {Type("undefined")}
+
+  mark-vars:
+    JSModule(s*) -> result
+    with
+    	var-types := <collect-var-types> s*;
+    	<debug(!"var-types: ")> var-types;
+    	result := <apply-var-types(|var-types)> JSModule(s*)
+  
+  collect-var-types = map(collect-var-type); concat
+  apply-var-types(|var-types) = topdown(try(apply-var-type(|var-types)))
+  
+  collect-var-type:
+  	JSVarDecl(FSTypedIdentifier(i, FSType(t)), v) -> [(i, t)]
+  	
+  collect-var-type:
+    t -> []
+    
+  apply-var-type(|var-types):
+  	JSVar(i) -> JSVar(i) {Type(t)}
+  	with
+  		<debug(!"var: ")> i;
+  		if(<get-var-type(|i)> var-types) then
+  		  t := <get-var-type(|i)> var-types
+  		else
+  			t := "Object"
+  	  end;
+  		<debug(!"type: ")> t
+  
+  get-var-type(|i) = getfirst(filter-var-type(|i))
+  
+  filter-var-type(|i):
+  	(i, t) -> t
+
+  // mark-type:
+  //   FSTypedIdentifier(i, FSType(t)) -> FSTypedIdentifier(i, FSType(t)) {Type(t)}

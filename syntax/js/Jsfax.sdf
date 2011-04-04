@@ -1,0 +1,211 @@
+module js/Jsfax
+
+imports js/Common
+
+exports
+
+  context-free start-symbols
+    Start
+
+  context-free syntax
+
+    Stat*       -> Start {cons("JSModule")}
+
+  context-free syntax %% Statements
+    "var" {ID ","}* ";"         -> Stat {cons("JSVarDeclNoInit")}
+    "var" ID "=" Exp ";" -> Stat {cons("JSVarDecl")}
+
+    "for" "(" Stat Exp ";" Exp ")" Stat   -> Stat {cons("JSFor")}
+    "for" "(" "var" ID "in" Exp ")" Stat  -> Stat {cons("JSForIn")}
+    "if" "(" Exp ")" Stat "else" Stat     -> Stat {cons("JSIf")}
+    "if" "(" Exp ")" Stat                 -> Stat {cons("JSIfNoElse")}
+    "while" "(" Exp ")" Stat              -> Stat {cons("JSWhile")}
+
+    "try" "{" Stat* "}" "catch" "(" ID ")" "{" Stat* "}" -> Stat {cons("JSTryCatch")}
+
+    "switch" "(" Exp ")" "{" Case* "}"    -> Stat {cons("JSSwitch")}
+
+    "case" Exp ":" Stat*                  -> Case {cons("JSCase")}
+    "default" ":" Stat*                   -> Case {cons("JSDefaultCase")}
+
+    "break" ";"                           -> Stat {cons("JSBreak")}
+
+    "throw" Exp ";"                       -> Stat {cons("JSThrow")}
+    "return" Exp ";" -> Stat {cons("JSReturn")}
+    "return" ";" -> Stat {cons("JSReturn")}
+
+    "delete" Exp ";" -> Stat {cons("JSDelete")}
+
+    Exp ";"                -> Stat {cons("JSExpStat")}
+
+    "{" Stat* "}" -> Stat {cons("JSBlock")}
+
+    "function" ID "(" {ID ","}* ")" "{" Stat* "}" -> Stat {cons("JSFunctionDecl")}
+    "function" ID "~(" {ID ","}* ")" "{" Stat* "}" -> Stat {cons("JSAsyncFunctionDecl")}
+
+    LVal AssignOp Exp ";"                      -> Stat {cons("JSAssign")}
+    Exp "." ID                            -> LVal {cons("JSLFieldAccess")}
+    ID                                    -> LVal {cons("JSLVar")}
+    Exp "[" Exp "]"                       -> LVal {cons("JSLPropAccess")}
+
+
+  context-free syntax %% Expressions
+
+    STRING                 -> Exp {cons("JSStringLit")}
+    INT                    -> Exp {cons("JSIntLit")}
+    ID                     -> VarExp {cons("JSVar")}
+    "true"                 -> Exp {cons("JSTrue")}
+    "false"                -> Exp {cons("JSFalse")}
+    "this"                 -> Exp {cons("JSThis")}
+    "null"                 -> Exp {cons("JSNull")}
+    VarExp                 -> Exp
+
+    "[" {Exp ","}* "]"     -> Exp {cons("JSArrayCons")}
+    "new" Exp "(" {Exp ","}* ")" -> Exp {cons("JSNew")}
+    "{" {PropVal ","}* "}" -> Exp {cons("JSObj")}
+
+    ID ":" Exp             -> PropVal {cons("JSPropVal"), prefer}
+    Exp ":" Exp             -> PropVal {cons("JSPropVal"), prefer, left}
+
+    VarExp "++"            -> Exp {cons("JSInc")}
+    VarExp "--"            -> Exp {cons("JSDec")}
+    "!" Exp                -> Exp {cons("JSNot")}
+    "typeof" Exp           -> Exp {cons("JSTypeOf")}
+
+    Exp "in" Exp           -> Exp {cons("JSIn")}
+
+    Exp "?" Exp ":" Exp    -> Exp {cons("JSChoice")}
+
+    "(" Exp ")"            -> Exp {cons("JSBracket")}
+
+    Exp BoolMethodId Exp         -> Exp {cons("JSOp"), left}
+    Exp CompareMethodId Exp      -> Exp {cons("JSOp"), left}
+    Exp TermOperatorMethodId Exp -> Exp {cons("JSOp"), left}
+    Exp OperatorMethodId Exp     -> Exp {cons("JSOp"), left}
+
+    Exp "." ID              -> Exp {cons("JSFieldAccess")}
+    Exp "(" {Exp ","}* ")"  -> Exp {cons("JSCall")}
+    Exp "~(" {Exp ","}* ")" -> Exp {cons("JSAsyncCall")}
+    Exp IndexerSubscript    -> Exp {cons("JSPropAccess")}
+
+    "[" Exp "]"            -> IndexerSubscript {cons("JSIndex")}
+
+    "function" "(" {ID ","}* ")" "{" Stat* "}" -> Exp {cons("JSFunctionExp")}
+    "function" "~(" {ID ","}* ")" "{" Stat* "}" -> Exp {cons("JSAsyncFunctionExp")}
+
+   context-free priorities
+    {
+      Exp "." ID -> Exp
+      Exp "(" {Exp ","}* ")"   -> Exp
+      Exp "~(" {Exp ","}* ")"   -> Exp
+      Exp IndexerSubscript     -> Exp
+    }
+  > "!" Exp         -> Exp
+  > "typeof" Exp         -> Exp
+  > "new" Exp "(" {Exp ","}* ")" -> Exp
+  > {
+      VarExp "++"            -> Exp
+      VarExp "--"            -> Exp
+    }
+  > Exp TermOperatorMethodId Exp -> Exp
+  > Exp OperatorMethodId Exp -> Exp
+  > Exp CompareMethodId Exp -> Exp
+  > Exp BoolMethodId Exp -> Exp
+
+  > Exp "?" Exp ":" Exp     -> Exp
+  > Exp "in" Exp            -> Exp
+
+  lexical syntax
+
+    "||"                     -> BoolMethodId
+    "&&"                     -> BoolMethodId
+    "==="                     -> CompareMethodId
+    "!=="                     -> CompareMethodId
+    "<"                      -> CompareMethodId
+    "<="                     -> CompareMethodId
+    ">"                      -> CompareMethodId
+    ">="                     -> CompareMethodId
+    "*"                      -> TermOperatorMethodId
+    "/"                      -> TermOperatorMethodId
+    "<<"                     -> TermOperatorMethodId
+    ">>"                     -> TermOperatorMethodId
+    "&"                      -> TermOperatorMethodId
+    "|"                      -> TermOperatorMethodId
+    "%"                      -> TermOperatorMethodId
+    "+"                      -> OperatorMethodId
+    "-"                      -> OperatorMethodId
+
+    "="                      -> AssignOp
+    "+="                     -> AssignOp
+    "-="                     -> AssignOp
+    "*="                     -> AssignOp
+    "%="                     -> AssignOp
+
+  lexical syntax
+
+    %% Javascript keywords (source: http://www.perlscriptsjavascripts.com/tutorials/javascript/keywords_1.html)
+    "abstract" -> KEYWORD
+    "boolean" -> KEYWORD
+    "break" -> KEYWORD
+    "byte" -> KEYWORD
+    "case" -> KEYWORD
+    "catch" -> KEYWORD
+    "char" -> KEYWORD
+    "class" -> KEYWORD
+    "const" -> KEYWORD
+    "continue" -> KEYWORD
+    "debugger" -> KEYWORD
+    "default" -> KEYWORD
+    "delete" -> KEYWORD
+    "do" -> KEYWORD
+    "double" -> KEYWORD
+    "else" -> KEYWORD
+    "enum" -> KEYWORD
+    "export" -> KEYWORD
+    "extends" -> KEYWORD
+    "false" -> KEYWORD
+    "final" -> KEYWORD
+    "finally" -> KEYWORD
+    "float" -> KEYWORD
+    "for" -> KEYWORD
+    "function" -> KEYWORD
+    "goto" -> KEYWORD
+    "if" -> KEYWORD
+    "implements" -> KEYWORD
+    "import" -> KEYWORD
+    "in" -> KEYWORD
+    "instanceof" -> KEYWORD
+    "int" -> KEYWORD
+    "interface" -> KEYWORD
+    "long" -> KEYWORD
+    "native" -> KEYWORD
+    "new" -> KEYWORD
+    "null" -> KEYWORD
+    "package" -> KEYWORD
+    "private" -> KEYWORD
+    "protected" -> KEYWORD
+    "public" -> KEYWORD
+    "return" -> KEYWORD
+    "short" -> KEYWORD
+    "static" -> KEYWORD
+    "super" -> KEYWORD
+    "switch" -> KEYWORD
+    "synchronized" -> KEYWORD
+    "this" -> KEYWORD
+    "throw" -> KEYWORD
+    "throws" -> KEYWORD
+    "transient" -> KEYWORD
+    "true" -> KEYWORD
+    "try" -> KEYWORD
+    "typeof" -> KEYWORD
+    "var" -> KEYWORD
+    "volatile" -> KEYWORD
+    "while" -> KEYWORD
+    "with" -> KEYWORD
+
+    KEYWORD -> ID {reject}
+
+  lexical restrictions
+
+    "abstract" "boolean" "break" "byte" "case" "catch" "char" "class" "const" "continue" "debugger" "default" "delete" "do" "double" "else" "enum" "export" "extends" "false" "final" "finally" "float" "for" "function" "goto" "if" "implements" "import" "in" "instanceof" "int" "interface" "long" "native" "new" "null" "package" "private" "protected" "public" "return" "short" "static" "super" "switch" "synchronized" "this" "throw" "throws" "transient" "true" "try" "typeof" "var" "volatile" "while" "with"
+ -/- [a-zA-Z0-9\_]

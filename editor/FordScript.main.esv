@@ -1,0 +1,16 @@
+module FordScript.main
+
+imports FordScript-Builders FordScript-Colorer FordScript-Completions FordScript-Folding FordScript-Outliner FordScript-References FordScript-Syntax
+
+language General properties
+                  
+  name          : FordScript
+  id            : fordscript
+  extends       : jsfax
+                  
+  description   : "Spoofax/IMP-generated editor for the FordScript language"
+  url           : http://strategoxt.org
+                  
+  extensions    : fs
+  table         : include/FordScript.tbl
+  start symbols : Start

@@ -1,0 +1,168 @@
+module check
+
+imports
+  libstratego-lib
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+
+  // Analysis: does a topdown traversal of the tree,
+  // and tries to apply the record-class and record-type rules.
+  analyze:
+    t -> t
+    with
+      <topdown(try(record-class))> t
+      ; <topdown(try(record-type))> t
+
+  record-class:
+    FSClassDecl(i, d*) -> FSClassDecl(i, d*)
+    with
+      <map(try(record-member(|i)))> d*;
+      rules(
+        GetClass :+ i -> i
+      )
+  
+  record-class:
+    FSExtendedClassDecl(i, FSType(s), d*) -> FSExtendedClassDecl(i, s, d*)
+    with
+      <map(try(record-member(|i)))> d*;
+      rules(
+        GetClass :+ i -> i
+        GetSuperClass :+ i -> s
+      )
+  
+  record-class:
+    FSClassAugmentation(i, d*) -> FSClassAugmentation(i, d*)
+    with
+      <map(try(record-member(|i)))> d*;
+      rules(
+        GetClass :+ i -> i
+      )
+  
+  record-member(|i):
+    JSVarDecl(m, v) -> JSVarDecl(m, v)
+    with
+      <record-member(|i)> m
+  
+  record-member(|i):
+    JSVarDeclNoInit(ms*) -> JSVarDeclNoInit(ms*)
+    with
+      <debug(!"members: ")> [i, ".", ms*];
+      <map(record-member(|i))> ms*
+  
+  record-member(|i):
+    FSIdentifier(m) -> FSIdentifier(m)
+    with
+      <debug(!"member: ")> <concat-strings> [i, ".", m];
+      rules(
+        GetMember :+ (i, m) -> (i, m)
+      )
+  
+  record-member(|i):
+    FSTypedIdentifier(m, FSType(t)) -> FSTypedIdentifier(m, FSType(t))
+    with
+      <debug(!"member: ")> <concat-strings> [i, ".", m];
+      rules(
+        GetMember :+ (i, m) -> (i, m)
+      )
+  
+  record-member(|i):
+    JSVarDecl(FSTypedIdentifier(m, FSType(t)), v) -> JSVarDecl(FSTypedIdentifier(m, FSType(t)), v)
+    with
+      <debug(!"member: ")> <concat-strings> [i, ".", m];
+      rules(
+        GetMember :+ (i, m) -> (i, m)
+      )
+  
+  record-member(|i):
+    JSVarDeclNoInit(FSTypedIdentifier(m, FSType(t))) -> JSVarDeclNoInit(FSTypedIdentifier(m, FSType(t)))
+    with
+      <debug(!"member: ")> <concat-strings> [i, ".", m];
+      rules(
+        GetMember :+ (i, m) -> (i, m)
+      )
+  
+  record-member(|i):
+    JSFunctionDecl(m, x*, s*) -> JSFunctionDecl(m, x*, s*)
+    with
+      <debug(!"member: ")> <concat-strings> [i, ".", m];
+      rules(
+        GetMember :+ (i, m) -> (i, m)
+      )
+  
+  record-member(|i):
+    FSTypedFunctionDecl(m, x*, FSType(t), s*) -> FSTypedFunctionDecl(m, x*, FSType(t), s*)
+    with
+      <debug(!"member: ")> <concat-strings> [i, ".", m];
+      rules(
+        GetMember :+ (i, m) -> (i, m)
+      )
+  
+  record-type:
+    FSTypedIdentifier(v, FSType(t)) -> FSTypedIdentifier(v, FSType(t))
+    with
+      rules(
+        GetType :+ v -> t
+      )
+  
+  member-of(|x):
+    (a, b) -> (b)
+    where
+      <eq> (a, x)
+  
+  collect-members:
+    i -> all-members
+    with
+      <debug(!"collect-members ")> i;
+      members := <filter(member-of(|i))> <all-keys-GetMember>;
+      if <GetSuperClass> i then
+        all-members := <conc> (members, <collect-members> <GetSuperClass> i)
+      else if not(<eq> (i, "Object")) then
+          all-members := <conc> (members, <collect-members> "Object")
+        else
+          all-members := members
+        end
+      end
+  
+  constraint-error:
+    FSTypedLambdaExp(x*, FSType(t), e) -> (t, $[Type [t] is not defined])
+    where
+      not(<GetClass> t) // no entity for this type
+  
+  constraint-error:
+    FSTypedIdentifier(i, FSType(t)) -> (t, $[Type [t] is not defined])
+    where
+      not(<GetClass> t) // no entity for this type
+  
+  constraint-error:
+    FSTypedFunctionDecl(i, x*, FSType(t), s*) -> (t, $[Type [t] is not defined])
+    where
+      not(<GetClass> t) // no entity for this type
+  
+  constraint-error:
+    FSTypedFunctionExp(x*, FSType(t), s*) -> (t, $[Type [t] is not defined])
+    where
+      not(<GetClass> t) // no entity for this type
+  
+  // Reports an error if an entity is defined more than once.
+  // This constraint is implemented by testing if the "bag" of
+  // all entities x is not a singleton list.
+  constraint-error:
+    FSClassDecl(i, _) -> (i, $[Duplicate class name])
+    where
+      not(<bagof-GetClass> i => [_])
+  
+  // constraint-note:
+  //   Module(x @ "example", _) -> (x, $[This is just an example program in the "entities" language
+  //                                     (this note is defined in trans/check.str) ])
+
+  constraint-warning:
+    i -> (i, $[])
+    where
+      not(id)
+
+  constraint-note:
+    i -> (i, $[])
+    where
+      not(id)
