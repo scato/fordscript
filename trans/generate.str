@@ -9,8 +9,10 @@ imports
 
 rules
 
-//  to-jsfax = innermost(debug(!"in:  "); desugar; debug(!"out: "))
   to-jsfax = innermost(desugar)
+  
+  desugar:
+    FSBlock(s*) -> s*
   
   desugar:
     FSLambdaExp(x*, exp) -> JSFunctionExp(x*, [JSReturn(exp)])
@@ -39,45 +41,95 @@ rules
         constructor := JSFunctionDecl(c, [], [])
       end
   
-  desugar:
-    FSClassDecl(c, s*) -> [
-      <class-to-constructor(|c)> s*,
-      <map(try(class-to-prototype(|c)))> s*
+  super-call-to-apply(|c):
+    FSSuperCall(i, x*) -> [
+      $[ [c].prototype.[i].apply(this, ["["] ],
+      xs,
+      $[ ["]"]) ]
     ]
+    with
+      xs := <separate-by(|", ")> x*
   
   desugar:
-    FSExtendedClassDecl(c, e, s*) -> [
-      <class-to-constructor(|c)> s*,
-      
-      // Ctor.prototype = (function(s) {
-      //   function c() {}
-      //   c.prototype = Super.prototype;
-      //   return new c();
-      // })();
-      JSAssign(
-	      JSLFieldAccess(JSVar(c), "prototype") , "=", JSCall(JSBracket(
-          JSFunctionExp([], [
-          	JSFunctionDecl("c", [], []),
-          	JSAssign(JSLFieldAccess(JSVar("c"), "prototype"), "=", JSFieldAccess(e, "prototype")),
-          	JSReturn(JSNew(JSVar("c"), []))
-          ]
-        )), [])
-	    ),
-	    
-      <map(try(class-to-prototype(|c)))> s*
+    FSClassDecl(c, s*) -> [
+      <class-to-constructor(|c)> s'*,
+      <map(try(class-to-prototype(|c)))> s'*
     ]
+    with
+      s'* := <map(bottomup(try(super-call-to-apply(|"Object"))))> s*
+  
+  desugar:
+    FSExtendedClassDecl(c, FSType(e), s*) -> [
+      <class-to-constructor(|c)> s'*,
+      $[ [c].prototype = function() { var c = function() {}; c.prototype = [e].prototype; var p = new c(); p.constructor = c; return p; }(); ],
+      <map(try(class-to-prototype(|c)))> s'*
+    ]
+    with
+      s'* := <map(bottomup(try(super-call-to-apply(|e))))> s*
   
   desugar:
     FSClassAugmentation(c, s*) ->
       <map(try(class-to-prototype(|c)))> s*
   
   class-to-prototype(|c):
-    JSVarDecl(FSIdentifier(p), v) ->
-      JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", v)
+    s* -> <map(class-to-prototype(|c))> s*
   
   class-to-prototype(|c):
-    JSVarDeclNoInit(i*) -> []
+    JSVarDecl(FSIdentifier(p), v) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", v))
+  
+  class-to-prototype(|c):
+    JSVarDeclNoInit(i) -> []
   
   class-to-prototype(|c):
     JSFunctionDecl(p, x*, s*) ->
-      JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", JSFunctionExp(x*, s*))
+      result
+    with
+      if(<eq> (p, "constructor")) then
+        result := []
+      else
+        result := JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", JSFunctionExp(x*, s*)))
+      end
+
+  static-to-prototype(|c):
+    JSVarDecl(FSIdentifier(p), v) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(c, p)), "=", v))
+  
+  static-to-prototype(|c):
+    JSVarDeclNoInit(i) -> []
+  
+  class-to-prototype(|c):
+    FSStaticDecl(JSFunctionDecl(p, x*, s*)) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(c, p)), "=", JSFunctionExp(x*, s*)))
+
+  class-to-prototype(|c):
+    FSStaticDecl(s*) -> result
+    with
+      result := <map(static-to-prototype(|c))> s*
+  
+  desugar:
+    FSPrototypeDecl(p, s*) -> [
+      $[ var [p] = {}; ],
+      <map(try(prototype-to-prototype(|p)))> s*
+    ]
+
+  desugar:
+    FSExtendedPrototypeDecl(p, FSType(e), s*) -> [
+      $[ var [p] = function() { var c = function() {}; c.prototype = [e]; var p = new c(); return p; }(); ],
+      <map(try(prototype-to-prototype(|p)))> s*
+    ]
+
+  prototype-to-prototype(|p):
+        s* -> <map(prototype-to-prototype(|p))> s*
+  
+  prototype-to-prototype(|p):
+    JSVarDecl(FSIdentifier(m), v) ->
+      JSAssign(FSIdentifier(JSLFieldAccess(p, m)), "=", v)
+  
+  prototype-to-prototype(|p):
+    JSVarDeclNoInit(i) -> []
+  
+  prototype-to-prototype(|p):
+    JSFunctionDecl(m, x*, s*) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(p, m)), "=", JSFunctionExp(x*, s*)))
+

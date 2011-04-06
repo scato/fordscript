@@ -18,7 +18,6 @@ completions
   // completion template : Definition = "entity " <e> " {}" (blank) 
   //                                                                
   // completion template : Property =   <x> " : " <T> (blank)       
-                                                                 
 
 completions
   // Semantic (identifier) completion:   

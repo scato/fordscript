@@ -16,7 +16,13 @@ rules
       proposals := <all-keys-GetClass>
   
   editor-complete-proposals:
-    JSFieldAccess(var,COMPLETION(prefix)) -> proposals
+    JSFieldAccess(JSVar(name){Type("Class")},COMPLETION(prefix)) -> proposals
     where
-      proposals := <collect-members> <get-type> var
+      proposals := <collect-static-members> name
+
+  
+  editor-complete-proposals:
+    JSFieldAccess(expr{Type(type)},COMPLETION(prefix)) -> proposals
+    where
+      proposals := <collect-members> type
 

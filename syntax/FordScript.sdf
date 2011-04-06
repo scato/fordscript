@@ -7,49 +7,59 @@ imports js/Jsfax
 exports
 
   context-free start-symbols
-    Start
+    JSModule
 
   lexical syntax
-    %% unsure color-coding
+    %% ensure color-coding
     "undefined" -> KEYWORD
   
   context-free syntax
-    %% unsure color-coding
-    "undefined" -> Exp {cons("FSUndefined")}
-
+    %% ensure color-coding
+    "undefined" -> JSExp {cons("FSUndefined")}
+    
     %% lambda expressions
-    "function" "(" {Identifier ","}* ")" Exp          -> Exp {cons("FSLambdaExp")}
-    "function" "(" {Identifier ","}* ")" ":" Type Exp -> Exp {cons("FSTypedLambdaExp")}
+    "function" "(" {FSIdentifier ","}* ")" JSExp            -> JSExp {cons("FSLambdaExp")}
+    "function" "(" {FSIdentifier ","}* ")" ":" FSType JSExp -> JSExp {cons("FSTypedLambdaExp")}
 
     %% type annotations
-    ID          -> Type {cons("FSType")}
+    "void"          -> FSType {cons("FSVoid")}
+    "void"          -> JSID {reject}
+    JSID            -> FSType {cons("FSType")}
     
-    ID          -> Identifier {cons("FSIdentifier")}
-    ID ":" Type -> Identifier {cons("FSTypedIdentifier")}
+    JSID            -> FSIdentifier {cons("FSIdentifier")}
+    JSID ":" FSType -> FSIdentifier {cons("FSTypedIdentifier")}
     
-    "var" {Identifier ","}* ";"                                    -> VarStat {cons("JSVarDeclNoInit"), prefer}
-    "var" Identifier "=" Exp ";"                                   -> VarStat {cons("JSVarDecl"), prefer}
-    VarStat -> Stat
+    "var" {FSVarDecl ","}* ";"                                             -> FSVarStat {cons("FSBlock"), prefer}
+    FSIdentifier                                                           -> FSVarDecl {cons("JSVarDeclNoInit"), prefer}
+    FSIdentifier "=" JSExp                                                 -> FSVarDecl {cons("JSVarDecl"), prefer}
+    FSVarStat -> JSStat
     
-    "function" ID "(" {Identifier ","}* ")" "{" Stat* "}"          -> FuncStat {cons("JSFunctionDecl"), prefer}
-    "function" ID "(" {Identifier ","}* ")" ":" Type "{" Stat* "}" -> FuncStat {cons("FSTypedFunctionDecl"), prefer}
-    FuncStat -> Exp
+    "function" JSID "(" {FSIdentifier ","}* ")" "{" JSStat* "}"            -> FSFuncStat {cons("JSFunctionDecl"), prefer}
+    "function" JSID "(" {FSIdentifier ","}* ")" ":" FSType "{" JSStat* "}" -> FSFuncStat {cons("FSTypedFunctionDecl"), prefer}
+    FSFuncStat -> JSExp
     
-    "function" "(" {Identifier ","}* ")" "{" Stat* "}"             -> Exp {cons("JSFunctionExp"), prefer}
-    "function" "(" {Identifier ","}* ")" ":" Type "{" Stat* "}"    -> Exp {cons("FSTypedFunctionExp"), prefer}
+    "function" "(" {FSIdentifier ","}* ")" "{" JSStat* "}"                 -> JSExp {cons("JSFunctionExp"), prefer}
+    "function" "(" {FSIdentifier ","}* ")" ":" FSType "{" JSStat* "}"      -> JSExp {cons("FSTypedFunctionExp"), prefer}
     
     %% classes
-    "class" ID "{" ClassBodyDecl* "}"                -> Stat {cons("FSClassDecl")}
-    "class" ID "extends" Type "{" ClassBodyDecl* "}" -> Stat {cons("FSExtendedClassDecl")}
-    VarStat  -> ClassBodyDecl
-    FuncStat -> ClassBodyDecl
+    "class" JSID "{" FSClassBodyDecl* "}"                  -> JSStat {cons("FSClassDecl")}
+    "class" JSID "extends" FSType "{" FSClassBodyDecl* "}" -> JSStat {cons("FSExtendedClassDecl")}
+    FSVarStat  -> FSClassBodyDecl
+    FSFuncStat -> FSClassBodyDecl
+    "super" "." JSID "(" {JSExp ","}* ")"  -> JSExp {cons("FSSuperCall")}
+    "static" FSVarStat -> FSClassBodyDecl {cons("FSStaticDecl")}
+    "static" FSFuncStat -> FSClassBodyDecl {cons("FSStaticDecl")}
     
     %% type augmentation
-    "augment" ID "{" ClassBodyDecl* "}" -> Stat {cons("FSClassAugmentation")}
+    "augment" JSID "{" FSClassBodyDecl* "}" -> JSStat {cons("FSClassAugmentation")}
+    
+    %% prototypes
+    "prototype" JSID "{" FSClassBodyDecl* "}"                  -> JSStat {cons("FSPrototypeDecl")}
+    "prototype" JSID "extends" FSType "{" FSClassBodyDecl* "}" -> JSStat {cons("FSExtendedPrototypeDecl")}
 
   context-free priorities
-    Exp "in" Exp            -> Exp
+    JSExp "in" JSExp            -> JSExp
   > {
-      "function" "(" {Identifier ","}* ")" Exp          -> Exp
-      "function" "(" {Identifier ","}* ")" ":" Type Exp -> Exp
+      "function" "(" {FSIdentifier ","}* ")" JSExp            -> JSExp
+      "function" "(" {FSIdentifier ","}* ")" ":" FSType JSExp -> JSExp
     }

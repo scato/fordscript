@@ -56,7 +56,7 @@
    JSDec                          -- _1 KW["--"],
    JSNot                          -- KW["!"] _1,
    JSTypeOf                       -- KW["typeof"] _1,
-   JSIn                           -- _1 KW["in"] _2,
+   JSIn                           -- _1 KW[" in "] _2,
    JSChoice                       -- _1 KW["?"] _2 KW[":"] _3,
    JSBracket                      -- KW["("] _1 KW[")"],
    JSOp                          -- _1 KW["+"] _2,

@@ -13,4 +13,4 @@ language General properties
                   
   extensions    : fs
   table         : include/FordScript.tbl
-  start symbols : Start
+  start symbols : JSModule

@@ -1,145 +1,146 @@
 module js/Jsfax
 
-imports js/Common
+imports
+  js/Common
+  js/Regex
 
 exports
 
-  context-free start-symbols
-    Start
+  context-free syntax %% JSStatements
+    JSStat*                       -> JSModule {cons("JSModule")}
+    "var" {JSID ","}* ";"         -> JSStat {cons("JSVarDeclNoInit")}
+    "var" JSID "=" JSExp ";" -> JSStat {cons("JSVarDecl")}
 
-  context-free syntax
+    "for" "(" JSStat JSExp ";" JSExp ")" JSStat   -> JSStat {cons("JSFor")}
+    "for" "(" "var" JSID "in" JSExp ")" JSStat  -> JSStat {cons("JSForIn")}
+    "if" "(" JSExp ")" JSStat "else" JSStat     -> JSStat {cons("JSIf")}
+    "if" "(" JSExp ")" JSStat                 -> JSStat {cons("JSIfNoElse")}
+    "while" "(" JSExp ")" JSStat              -> JSStat {cons("JSWhile")}
 
-    Stat*       -> Start {cons("JSModule")}
+    "try" "{" JSStat* "}" "catch" "(" JSID ")" "{" JSStat* "}" -> JSStat {cons("JSTryCatch")}
 
-  context-free syntax %% Statements
-    "var" {ID ","}* ";"         -> Stat {cons("JSVarDeclNoInit")}
-    "var" ID "=" Exp ";" -> Stat {cons("JSVarDecl")}
+    "switch" "(" JSExp ")" "{" Case* "}"    -> JSStat {cons("JSSwitch")}
 
-    "for" "(" Stat Exp ";" Exp ")" Stat   -> Stat {cons("JSFor")}
-    "for" "(" "var" ID "in" Exp ")" Stat  -> Stat {cons("JSForIn")}
-    "if" "(" Exp ")" Stat "else" Stat     -> Stat {cons("JSIf")}
-    "if" "(" Exp ")" Stat                 -> Stat {cons("JSIfNoElse")}
-    "while" "(" Exp ")" Stat              -> Stat {cons("JSWhile")}
+    "case" JSExp ":" JSStat*                  -> Case {cons("JSCase")}
+    "default" ":" JSStat*                   -> Case {cons("JSDefaultCase")}
 
-    "try" "{" Stat* "}" "catch" "(" ID ")" "{" Stat* "}" -> Stat {cons("JSTryCatch")}
+    "break" ";"                           -> JSStat {cons("JSBreak")}
 
-    "switch" "(" Exp ")" "{" Case* "}"    -> Stat {cons("JSSwitch")}
+    "throw" JSExp ";"                       -> JSStat {cons("JSThrow")}
+    "return" JSExp ";" -> JSStat {cons("JSReturn")}
+    "return" ";" -> JSStat {cons("JSReturn")}
 
-    "case" Exp ":" Stat*                  -> Case {cons("JSCase")}
-    "default" ":" Stat*                   -> Case {cons("JSDefaultCase")}
+    "delete" JSExp ";" -> JSStat {cons("JSDelete")}
 
-    "break" ";"                           -> Stat {cons("JSBreak")}
+    JSExp ";"                -> JSStat {cons("JSExpStat")}
 
-    "throw" Exp ";"                       -> Stat {cons("JSThrow")}
-    "return" Exp ";" -> Stat {cons("JSReturn")}
-    "return" ";" -> Stat {cons("JSReturn")}
+    "{" JSStat* "}" -> JSStat {cons("JSBlock")}
 
-    "delete" Exp ";" -> Stat {cons("JSDelete")}
+    "function" JSID "(" {JSID ","}* ")" "{" JSStat* "}" -> JSStat {cons("JSFunctionDecl")}
+    "function" JSID "~(" {JSID ","}* ")" "{" JSStat* "}" -> JSStat {cons("JSAsyncFunctionDecl")}
 
-    Exp ";"                -> Stat {cons("JSExpStat")}
-
-    "{" Stat* "}" -> Stat {cons("JSBlock")}
-
-    "function" ID "(" {ID ","}* ")" "{" Stat* "}" -> Stat {cons("JSFunctionDecl")}
-    "function" ID "~(" {ID ","}* ")" "{" Stat* "}" -> Stat {cons("JSAsyncFunctionDecl")}
-
-    LVal AssignOp Exp ";"                      -> Stat {cons("JSAssign")}
-    Exp "." ID                            -> LVal {cons("JSLFieldAccess")}
-    ID                                    -> LVal {cons("JSLVar")}
-    Exp "[" Exp "]"                       -> LVal {cons("JSLPropAccess")}
+    JSExp "." JSID                            -> JSLVal {cons("JSLFieldAccess")}
+    JSID                                    -> JSLVal {cons("JSLVar")}
+    JSExp "[" JSExp "]"                       -> JSLVal {cons("JSLPropAccess")}
 
 
-  context-free syntax %% Expressions
+  context-free syntax %% JSExpressions
 
-    STRING                 -> Exp {cons("JSStringLit")}
-    INT                    -> Exp {cons("JSIntLit")}
-    ID                     -> VarExp {cons("JSVar")}
-    "true"                 -> Exp {cons("JSTrue")}
-    "false"                -> Exp {cons("JSFalse")}
-    "this"                 -> Exp {cons("JSThis")}
-    "null"                 -> Exp {cons("JSNull")}
-    VarExp                 -> Exp
+    "/" Pattern "/" JSID? -> JSExp {cons("JSRegex")}
 
-    "[" {Exp ","}* "]"     -> Exp {cons("JSArrayCons")}
-    "new" Exp "(" {Exp ","}* ")" -> Exp {cons("JSNew")}
-    "{" {PropVal ","}* "}" -> Exp {cons("JSObj")}
+    JSSTRING                 -> JSExp {cons("JSStringLit")}
+    JSDecimalLiteral                  -> JSExp {cons("JSIntLit")}
+    JSHexIntegerLiteral               -> JSExp {cons("JSIntLit")}
+    JSID                     -> VarJSExp {cons("JSVar")}
+    "true"                 -> JSExp {cons("JSTrue")}
+    "false"                -> JSExp {cons("JSFalse")}
+    "this"                 -> JSExp {cons("JSThis")}
+    "null"                 -> JSExp {cons("JSNull")}
+    VarJSExp                 -> JSExp
 
-    ID ":" Exp             -> PropVal {cons("JSPropVal"), prefer}
-    Exp ":" Exp             -> PropVal {cons("JSPropVal"), prefer, left}
+    JSLVal JSAssignOp JSExp    -> JSExp {cons("JSAssign")}
 
-    VarExp "++"            -> Exp {cons("JSInc")}
-    VarExp "--"            -> Exp {cons("JSDec")}
-    "!" Exp                -> Exp {cons("JSNot")}
-    "typeof" Exp           -> Exp {cons("JSTypeOf")}
+    "[" {JSExp ","}* "]"     -> JSExp {cons("JSArrayCons")}
+    "new" JSExp "(" {JSExp ","}* ")" -> JSExp {cons("JSNew")}
+    "{" {JSPropVal ","}* "}" -> JSExp {cons("JSObj")}
 
-    Exp "in" Exp           -> Exp {cons("JSIn")}
+    JSID ":" JSExp             -> JSPropVal {cons("JSPropVal"), prefer}
+    JSExp ":" JSExp             -> JSPropVal {cons("JSPropVal"), prefer, left}
 
-    Exp "?" Exp ":" Exp    -> Exp {cons("JSChoice")}
+    JSExp "++"            -> JSExp {cons("JSInc")}
+    JSExp "--"            -> JSExp {cons("JSDec")}
+    "!" JSExp                -> JSExp {cons("JSNot")}
+    "typeof" JSExp           -> JSExp {cons("JSTypeOf")}
 
-    "(" Exp ")"            -> Exp {cons("JSBracket")}
+    JSExp "in" JSExp           -> JSExp {cons("JSIn")}
 
-    Exp BoolMethodId Exp         -> Exp {cons("JSOp"), left}
-    Exp CompareMethodId Exp      -> Exp {cons("JSOp"), left}
-    Exp TermOperatorMethodId Exp -> Exp {cons("JSOp"), left}
-    Exp OperatorMethodId Exp     -> Exp {cons("JSOp"), left}
+    JSExp "?" JSExp ":" JSExp    -> JSExp {cons("JSChoice")}
 
-    Exp "." ID              -> Exp {cons("JSFieldAccess")}
-    Exp "(" {Exp ","}* ")"  -> Exp {cons("JSCall")}
-    Exp "~(" {Exp ","}* ")" -> Exp {cons("JSAsyncCall")}
-    Exp IndexerSubscript    -> Exp {cons("JSPropAccess")}
+    "(" JSExp ")"            -> JSExp {cons("JSBracket")}
 
-    "[" Exp "]"            -> IndexerSubscript {cons("JSIndex")}
+    JSExp JSBoolMethodId JSExp         -> JSExp {cons("JSOp"), left}
+    JSExp JSCompareMethodId JSExp      -> JSExp {cons("JSOp"), left}
+    JSExp JSTermOperatorMethodId JSExp -> JSExp {cons("JSOp"), left}
+    JSExp JSOperatorMethodId JSExp     -> JSExp {cons("JSOp"), left}
 
-    "function" "(" {ID ","}* ")" "{" Stat* "}" -> Exp {cons("JSFunctionExp")}
-    "function" "~(" {ID ","}* ")" "{" Stat* "}" -> Exp {cons("JSAsyncFunctionExp")}
+    JSExp "." JSID              -> JSExp {cons("JSFieldAccess")}
+    JSExp "(" {JSExp ","}* ")"  -> JSExp {cons("JSCall")}
+    JSExp "~(" {JSExp ","}* ")" -> JSExp {cons("JSAsyncCall")}
+    JSExp JSIndexerSubscript    -> JSExp {cons("JSPropAccess")}
+
+    "[" JSExp "]"            -> JSIndexerSubscript {cons("JSIndex")}
+
+    "function" "(" {JSID ","}* ")" "{" JSStat* "}" -> JSExp {cons("JSFunctionExp")}
+    "function" "~(" {JSID ","}* ")" "{" JSStat* "}" -> JSExp {cons("JSAsyncFunctionExp")}
 
    context-free priorities
     {
-      Exp "." ID -> Exp
-      Exp "(" {Exp ","}* ")"   -> Exp
-      Exp "~(" {Exp ","}* ")"   -> Exp
-      Exp IndexerSubscript     -> Exp
+      JSExp "." JSID -> JSExp
+      JSExp "(" {JSExp ","}* ")"   -> JSExp
+      JSExp "~(" {JSExp ","}* ")"   -> JSExp
+      JSExp JSIndexerSubscript     -> JSExp
     }
-  > "!" Exp         -> Exp
-  > "typeof" Exp         -> Exp
-  > "new" Exp "(" {Exp ","}* ")" -> Exp
+  > "!" JSExp         -> JSExp
+  > "typeof" JSExp         -> JSExp
+  > "new" JSExp "(" {JSExp ","}* ")" -> JSExp
   > {
-      VarExp "++"            -> Exp
-      VarExp "--"            -> Exp
+      JSExp "++"            -> JSExp
+      JSExp "--"            -> JSExp
     }
-  > Exp TermOperatorMethodId Exp -> Exp
-  > Exp OperatorMethodId Exp -> Exp
-  > Exp CompareMethodId Exp -> Exp
-  > Exp BoolMethodId Exp -> Exp
+  > JSExp JSTermOperatorMethodId JSExp -> JSExp
+  > JSExp JSOperatorMethodId JSExp -> JSExp
+  > JSExp JSCompareMethodId JSExp -> JSExp
+  > JSExp JSBoolMethodId JSExp -> JSExp
 
-  > Exp "?" Exp ":" Exp     -> Exp
-  > Exp "in" Exp            -> Exp
+  > JSExp "?" JSExp ":" JSExp     -> JSExp
+  > JSExp "in" JSExp            -> JSExp
+  > JSLVal JSAssignOp JSExp     -> JSExp
 
   lexical syntax
 
-    "||"                     -> BoolMethodId
-    "&&"                     -> BoolMethodId
-    "==="                     -> CompareMethodId
-    "!=="                     -> CompareMethodId
-    "<"                      -> CompareMethodId
-    "<="                     -> CompareMethodId
-    ">"                      -> CompareMethodId
-    ">="                     -> CompareMethodId
-    "*"                      -> TermOperatorMethodId
-    "/"                      -> TermOperatorMethodId
-    "<<"                     -> TermOperatorMethodId
-    ">>"                     -> TermOperatorMethodId
-    "&"                      -> TermOperatorMethodId
-    "|"                      -> TermOperatorMethodId
-    "%"                      -> TermOperatorMethodId
-    "+"                      -> OperatorMethodId
-    "-"                      -> OperatorMethodId
+    "||"                     -> JSBoolMethodId
+    "&&"                     -> JSBoolMethodId
+    "==="                     -> JSCompareMethodId
+    "!=="                     -> JSCompareMethodId
+    "<"                      -> JSCompareMethodId
+    "<="                     -> JSCompareMethodId
+    ">"                      -> JSCompareMethodId
+    ">="                     -> JSCompareMethodId
+    "*"                      -> JSTermOperatorMethodId
+    "/"                      -> JSTermOperatorMethodId
+    "<<"                     -> JSTermOperatorMethodId
+    ">>"                     -> JSTermOperatorMethodId
+    "&"                      -> JSTermOperatorMethodId
+    "|"                      -> JSTermOperatorMethodId
+    "%"                      -> JSTermOperatorMethodId
+    "+"                      -> JSOperatorMethodId
+    "-"                      -> JSOperatorMethodId
 
-    "="                      -> AssignOp
-    "+="                     -> AssignOp
-    "-="                     -> AssignOp
-    "*="                     -> AssignOp
-    "%="                     -> AssignOp
+    "="                      -> JSAssignOp
+    "+="                     -> JSAssignOp
+    "-="                     -> JSAssignOp
+    "*="                     -> JSAssignOp
+    "%="                     -> JSAssignOp
 
   lexical syntax
 
@@ -203,7 +204,7 @@ exports
     "while" -> KEYWORD
     "with" -> KEYWORD
 
-    KEYWORD -> ID {reject}
+    KEYWORD -> JSID {reject}
 
   lexical restrictions
 

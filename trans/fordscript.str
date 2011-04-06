@@ -19,7 +19,6 @@ rules // Main editor interface (defined by editor/FordScript-Builders and -Refer
     (ast, path, project-path) -> (ast, errors, warnings, notes)
     with
       editor-init;
-      <debug(!"path: ")> path;
       if not(<eq> (path, "test/javascript.fs")) then
         <open-import(id, parse-fordscript-file, analyze)> "test/javascript.fs"
       end;
@@ -53,7 +52,7 @@ rules // Main editor interface (defined by editor/FordScript-Builders and -Refer
   editor-resolve:
     (node, position, ast, path, project-path) -> target
     where
-      <debug(!"Resolve: ")> node; 
+      // <debug(!"Resolve: ")> node; 
       Type(type) := node; 
       target     := <GetClass> type
 
@@ -68,5 +67,7 @@ rules // Main editor interface (defined by editor/FordScript-Builders and -Refer
     (node, position, ast, path, project-path) -> proposals
     where
       ast' := <mark-types> ast;
-      proposals := <editor-complete-proposals> <term-at-position(|position)> ast'
+      node' := <term-at-position(|position)> ast';
+      <debug(!"typed version: ")> node';
+      proposals := <nub> <editor-complete-proposals> node'
 

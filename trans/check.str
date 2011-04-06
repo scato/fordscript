@@ -41,62 +41,157 @@ rules
       )
   
   record-member(|i):
+    FSBlock(s*) -> FSBlock(s*)
+    with
+      <map(record-member(|i))> s*
+  
+  record-member(|i):
     JSVarDecl(m, v) -> JSVarDecl(m, v)
     with
       <record-member(|i)> m
   
   record-member(|i):
-    JSVarDeclNoInit(ms*) -> JSVarDeclNoInit(ms*)
+    JSVarDeclNoInit(ms) -> JSVarDeclNoInit(ms)
     with
-      <debug(!"members: ")> [i, ".", ms*];
-      <map(record-member(|i))> ms*
+      <record-member(|i)> ms
   
   record-member(|i):
     FSIdentifier(m) -> FSIdentifier(m)
     with
-      <debug(!"member: ")> <concat-strings> [i, ".", m];
       rules(
         GetMember :+ (i, m) -> (i, m)
+        GetMemberType :+ (i, m) -> "Object"
       )
   
   record-member(|i):
     FSTypedIdentifier(m, FSType(t)) -> FSTypedIdentifier(m, FSType(t))
     with
-      <debug(!"member: ")> <concat-strings> [i, ".", m];
       rules(
         GetMember :+ (i, m) -> (i, m)
+        GetMemberType :+ (i, m) -> t
       )
   
   record-member(|i):
     JSVarDecl(FSTypedIdentifier(m, FSType(t)), v) -> JSVarDecl(FSTypedIdentifier(m, FSType(t)), v)
     with
-      <debug(!"member: ")> <concat-strings> [i, ".", m];
       rules(
         GetMember :+ (i, m) -> (i, m)
+        GetMemberType :+ (i, m) -> t
       )
   
   record-member(|i):
     JSVarDeclNoInit(FSTypedIdentifier(m, FSType(t))) -> JSVarDeclNoInit(FSTypedIdentifier(m, FSType(t)))
     with
-      <debug(!"member: ")> <concat-strings> [i, ".", m];
       rules(
         GetMember :+ (i, m) -> (i, m)
+        GetMemberType :+ (i, m) -> t
       )
   
   record-member(|i):
     JSFunctionDecl(m, x*, s*) -> JSFunctionDecl(m, x*, s*)
     with
-      <debug(!"member: ")> <concat-strings> [i, ".", m];
       rules(
         GetMember :+ (i, m) -> (i, m)
+        GetMemberType :+ (i, m) -> "Function"
+        GetMemberReturnType :+ (i, m) -> "Object"
       )
   
   record-member(|i):
     FSTypedFunctionDecl(m, x*, FSType(t), s*) -> FSTypedFunctionDecl(m, x*, FSType(t), s*)
     with
-      <debug(!"member: ")> <concat-strings> [i, ".", m];
       rules(
         GetMember :+ (i, m) -> (i, m)
+        GetMemberType :+ (i, m) -> "Function"
+        GetMemberReturnType :+ (i, m) -> t
+      )
+  
+  record-member(|i):
+    FSTypedFunctionDecl(m, x*, FSVoid(), s*) -> FSTypedFunctionDecl(m, x*, FSVoid(), s*)
+    with
+      rules(
+        GetMember :+ (i, m) -> (i, m)
+        GetMemberType :+ (i, m) -> "Function"
+        GetMemberReturnType :+ (i, m) -> "void"
+      )
+  
+  record-member(|i):
+    FSStaticDecl(JSFunctionDecl(m, x*, s*)) -> FSStaticDecl(JSFunctionDecl(m, x*, s*))
+    with
+      rules(
+        GetStaticMember :+ (i, m) -> (i, m)
+        GetStaticMemberType :+ (i, m) -> "Function"
+        GetStaticMemberReturn :+ (i, m) -> "Object"
+      )
+  
+  record-member(|i):
+    FSStaticDecl(FSTypedFunctionDecl(m, x*, FSType(t), s*)) -> FSStaticDecl(FSTypedFunctionDecl(m, x*, FSType(t), s*))
+    with
+      rules(
+        GetStaticMember :+ (i, m) -> (i, m)
+        GetStaticMemberType :+ (i, m) -> "Function"
+        GetStaticMemberReturn :+ (i, m) -> t
+      )
+  
+  record-member(|i):
+    FSStaticDecl(FSTypedFunctionDecl(m, x*, FSVoid(), s*)) -> FSStaticDecl(FSTypedFunctionDecl(m, x*, FSVoid(), s*))
+    with
+      rules(
+        GetStaticMember :+ (i, m) -> (i, m)
+        GetStaticMemberType :+ (i, m) -> "Function"
+        GetStaticMemberReturn :+ (i, m) -> "void"
+      )
+  
+  record-member(|i):
+    FSStaticDecl(FSBlock(s*)) -> FSStaticDecl(FSBlock(s*))
+    with
+      <map(record-static-member(|i))> s*
+
+  
+  record-static-member(|i):
+    FSBlock(s*) -> FSBlock(s*)
+    with
+      <map(record-static-member(|i))> s*
+  
+  record-static-member(|i):
+    JSVarDecl(m, v) -> JSVarDecl(m, v)
+    with
+      <record-static-member(|i)> m
+  
+  record-static-member(|i):
+    JSVarDeclNoInit(ms) -> JSVarDeclNoInit(ms)
+    with
+      <record-static-member(|i)> ms
+  
+  record-static-member(|i):
+    FSIdentifier(m) -> FSIdentifier(m)
+    with
+      rules(
+        GetStaticMember :+ (i, m) -> (i, m)
+        GetStaticMemberType :+ (i, m) -> "Object"
+      )
+  
+  record-static-member(|i):
+    FSTypedIdentifier(m, FSType(t)) -> FSTypedIdentifier(m, FSType(t))
+    with
+      rules(
+        GetStaticMember :+ (i, m) -> (i, m)
+        GetStaticMemberType :+ (i, m) -> t
+      )
+  
+  record-static-member(|i):
+    JSVarDecl(FSTypedIdentifier(m, FSType(t)), v) -> JSVarDecl(FSTypedIdentifier(m, FSType(t)), v)
+    with
+      rules(
+        GetStaticMember :+ (i, m) -> (i, m)
+        GetStaticMemberType :+ (i, m) -> t
+      )
+  
+  record-static-member(|i):
+    JSVarDeclNoInit(FSTypedIdentifier(m, FSType(t))) -> JSVarDeclNoInit(FSTypedIdentifier(m, FSType(t)))
+    with
+      rules(
+        GetStaticMember :+ (i, m) -> (i, m)
+        GetStaticMemberType :+ (i, m) -> t
       )
   
   record-type:
@@ -114,7 +209,6 @@ rules
   collect-members:
     i -> all-members
     with
-      <debug(!"collect-members ")> i;
       members := <filter(member-of(|i))> <all-keys-GetMember>;
       if <GetSuperClass> i then
         all-members := <conc> (members, <collect-members> <GetSuperClass> i)
@@ -124,6 +218,11 @@ rules
           all-members := members
         end
       end
+  
+  collect-static-members:
+    i -> members
+    with
+      members := <filter(member-of(|i))> <all-keys-GetStaticMember>
   
   constraint-error:
     FSTypedLambdaExp(x*, FSType(t), e) -> (t, $[Type [t] is not defined])
