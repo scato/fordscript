@@ -1,0 +1,78 @@
+module generate/collect
+
+// collect-member-access :: create a map by collecting all var types
+//                          (not by traversing the tree and recording them in a strategy)
+
+imports
+  libstratego-lib
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+  collect-class-member-access:
+    FSStaticClassDecl(c, e, a, s*) -> class-member-access
+    with
+      member-access := <collect-member-access> FSStaticClassDecl(c, e, a, s*);
+      class-member-access := (c, member-access)
+  
+  collect-class-member-access:
+    FSModule(s*) -> class-member-access
+    with
+      class-member-access := <collect-class-member-access> s*
+  
+  collect-class-member-access:
+    JSExpStat(s*) -> []
+  
+  collect-class-member-access:
+    JSVarDecl(i, v) -> []
+  
+  collect-class-member-access:
+    x* -> class-member-access*
+    with
+      class-member-access* := <map(collect-class-member-access)> x*
+  
+  collect-member-access:
+    FSStaticClassDecl(c, e, a, s*) -> member-access
+    with
+      member-access := <flatten-list> <map(collect-member-access)> s*
+  
+  collect-member-access:
+    FSPublicDecl(d) -> member-access
+    with
+      member-access := <collect-member-access(|"public")> d
+  
+  collect-member-access:
+    FSProtectedDecl(d) -> member-access
+    with
+      member-access := <collect-member-access(|"protected")> d
+  
+  collect-member-access:
+    FSPrivateDecl(d) -> member-access
+    with
+      member-access := <collect-member-access(|"private")> d
+  
+  collect-member-access:
+    x* -> member-access*
+    with
+      member-access* := <map(collect-member-access)> x*
+  
+  collect-member-access(|a):
+    JSVarDeclNoInit(FSIdentifier(i)) -> (i, a)
+  
+  collect-member-access(|a):
+    JSVarDecl(FSIdentifier(i), v) -> (i, a)
+  
+  collect-member-access(|a):
+    JSFunctionDecl(i, x*, s*) -> (i, a)
+  
+  collect-member-access(|a):
+    FSBlock(x*) -> member-access*
+    with
+      member-access* := <map(collect-member-access(|a))> x*
+  
+  collect-member-access(|a):
+    x* -> member-access*
+    with
+      member-access* := <map(collect-member-access(|a))> x*
+
+

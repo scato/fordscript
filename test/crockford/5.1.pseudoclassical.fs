@@ -1,4 +1,7 @@
+module {
+
 // 5.1 Pseudoclassical
+document.write("<div><strong>5.1 Pseudoclassical</strong></div>");
 
 class Mammal {
     function constructor(name) {
@@ -45,3 +48,5 @@ assert(myCat.name === 'Henrietta', "myCat has correct name");
 assert(myCat.get_name() === 'Henrietta', "get_name returns new name");
 assert(myCat.says() === 'meow', "says returns meow");
 assert(myCat.purr(5) === 'r-r-r-r-r', "purr returns the correct number of r's");
+
+}

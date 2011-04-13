@@ -7,6 +7,7 @@ imports
   include/FordScript
   lib/editor-common.generated
   check
+  check/record
   generate
   complete
   type
@@ -31,8 +32,9 @@ rules // Main editor interface (defined by editor/FordScript-Builders and -Refer
   generate-jsfax:
     (selected, position, ast, path, project-path) -> (filename, result)
     with
+      ast' := <mark-member-access> ast;
       filename := <guarantee-extension(|"js")> path;
-      result   := <pp-fordscript-string> <to-jsfax> ast
+      result   := <pp-fordscript-string> <to-jsfax> ast'
   
   // Prints the abstract syntax ATerm of a selection.
   generate-aterm:

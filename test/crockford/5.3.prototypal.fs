@@ -1,4 +1,7 @@
+module {
+
 // 5.3 Prototypal
+document.write("<div><strong>5.3 Prototypal</strong></div>");
 
 prototype myMammal {
     var name = 'Herb the Mammal';
@@ -40,3 +43,5 @@ assert(myCat.name === 'Henrietta', "myCat has correct name");
 assert(myCat.get_name() === 'meow Henrietta meow', "get_name returns name with meow around it");
 assert(myCat.says() === 'meow', "says returns meow");
 assert(myCat.purr(5) === 'r-r-r-r-r', "purr returns the correct number of r's");
+
+}

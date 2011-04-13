@@ -1,0 +1,36 @@
+module check/collect
+
+// collect-members       :: collect members for a class and its superclasses
+// collect-static-member :: collect static members for a specific class
+
+imports
+  libstratego-lib
+  include/FordScript
+  lib/editor-common.generated
+  check/record
+
+rules
+
+  member-of(|x):
+    (a, b) -> (b)
+    where
+      <eq> (a, x)
+  
+  collect-members:
+    i -> all-members
+    with
+      members := <filter(member-of(|i))> <all-keys-GetMember>;
+      if <GetSuperClass> i then
+        all-members := <conc> (members, <collect-members> <GetSuperClass> i)
+      else if not(<eq> (i, "Object")) then
+          all-members := <conc> (members, <collect-members> "Object")
+        else
+          all-members := members
+        end
+      end
+  
+  collect-static-members:
+    i -> members
+    with
+      members := <filter(member-of(|i))> <all-keys-GetStaticMember>
+  

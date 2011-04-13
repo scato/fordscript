@@ -1,0 +1,42 @@
+module generate/apply
+
+imports
+  libstratego-lib
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+  
+  apply-class-member-access(|class-member-access):
+    FSStaticClassDecl(c, e, a, s*) -> FSStaticClassDecl(c, e, a, s*){Anno("member-access", member-access)}
+    with
+      member-access := <concat> [
+        <fetch-class-member-access(|class-member-access)> c,
+        <fetch-class-member-access(|class-member-access)> e,
+        <fetch-class-member-access(|class-member-access)> a
+      ]
+
+  fetch-class-member-access(|class-member-access):
+    None() -> []
+  
+  fetch-class-member-access(|class-member-access):
+    Some(FSExtendsClause(i)) -> member-access
+    with
+      member-access := <get-class-member-access(|i)> class-member-access
+  
+  fetch-class-member-access(|class-member-access):
+    Some(FSAdoptsClause(i*)) -> member-access
+    with
+      member-access := <concat> <map(fetch-class-member-access(|class-member-access))> i*
+  
+  fetch-class-member-access(|class-member-access):
+    i -> member-access
+    with
+      member-access := <get-class-member-access(|i)> class-member-access
+  
+  get-class-member-access(|i) = getfirst(filter-class-member-access(|i))
+  
+  filter-class-member-access(|i):
+    (i, t) -> t
+
+

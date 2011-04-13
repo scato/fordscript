@@ -1,3 +1,7 @@
+module {
+
+document.write("<div><strong>Examples</strong></div>");
+
 var x = 4;
 
 assert(x === 4, "x equals 4");
@@ -98,3 +102,5 @@ assert(Vet.name === 'Mister Vet', "Vet is called Mister Vet");
 Vet.bring(felix);
 
 assert(felix.legs === 5, "felix now has 5 legs");
+
+}

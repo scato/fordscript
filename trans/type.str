@@ -1,14 +1,20 @@
 module type
 
+// mark-types :: add type annotations to AST
+// get-*-type :: get the type of something recorded with check/record
+
 imports
 //  libstratego-lib
 //  libstratego-gpp
 //  libstratego-aterm
   include/FordScript
   lib/editor-common.generated
-  check
+  check/record
+  type/collect
+  type/apply
 
 rules
+	// add type annotations to AST
   mark-types = mark-vars
   
   mark-vars:
@@ -17,109 +23,11 @@ rules
     	var-types := <collect-var-types> s*;
     	result := <apply-var-types(|var-types)> JSModule(s*)
   
-  collect-var-types = map(collect-var-type); flatten-list
-  apply-var-types(|var-types) = bottomup(try(apply-var-type(|var-types)))
-  
-  collect-var-type:
-    JSVarDecl(FSTypedIdentifier(i, FSType(t)), v) -> (i, t)
-    
-  collect-var-type:
-    JSFunctionDecl(i, x*, s*) -> (i, "Function")
-    
-  collect-var-type:
-    FSTypedFunctionDecl(i, x*, t, s*) -> (i, "Function")
-    // TODO: store return type for non-member functions
-    
-  // a little bit of type inference
-  // TODO: mark as types first and then use inference
-  
-  collect-var-type:
-    JSVarDecl(i, JSNew(JSVar(t), [x*])) -> (i, t)
-    
-  collect-var-type:
-    JSVarDecl(i, JSIntLit(v)) -> (i, "Number")
-    
-  collect-var-type:
-    JSVarDecl(i, JSStringLit(v)) -> (i, "String")
-    
-  collect-var-type:
-    JSVarDecl(i, JSRegex(a, b)) -> (i, "RegExp")
-    
-  collect-var-type:
-    JSVarDecl(i, JSTrue()) -> (i, "Boolean")
-    
-  collect-var-type:
-    JSVarDecl(i, JSFalse()) -> (i, "Boolean")
-    
-  collect-var-type:
-    JSVarDecl(i, JSArrayCons(a)) -> (i, "Array")
-    
-  collect-var-type:
-    JSVarDecl(i, JSFunctionExp(a, b)) -> (i, "Function")
-    
-  collect-var-type:
-    JSVarDecl(i, FSTypedFunctionExp(a, b, c)) -> (i, "Function")
-    
-  collect-var-type:
-    JSVarDecl(i, FSLambdaExp(a, b)) -> (i, "Function")
-    
-  collect-var-type:
-    JSVarDecl(i, FSTypedLambdaExp(a, b, c)) -> (i, "Function")
-    
-  collect-var-type:
-    FSBlock(s*) -> <map(collect-var-type)> s*
-    
-  // classes are classes
-  
-  collect-var-type:
-    FSClassDecl(i, s*) -> (i, "Class")
-  
-  collect-var-type:
-    FSExtendedClassDecl(i, FSType(e), s*) -> (i, "Class")
-  
-  // ignore the rest
-  
-  collect-var-type:
-    t -> []
-  
-  apply-var-type(|var-types):
-  	JSVar(i) -> JSVar(i) {Type(t)}
-  	with
-  		if(<get-var-type(|i)> var-types) then
-  		  t := <get-var-type(|i)> var-types
-  		else
-  			t := "Object"
-  	  end
-  
-  get-var-type(|i) = getfirst(filter-var-type(|i))
-  
-  filter-var-type(|i):
-  	(i, t) -> t
-
-  apply-var-type(|var-types):
-    JSFieldAccess(JSVar(n){Type("Class")}, i) -> JSFieldAccess(JSVar(n){Type("Class")}, i){Type(t)}
-    with
-      <debug(!"known: ")> <all-keys-GetStaticMemberType>;
-      if(<get-static-member-type> (n, i)) then
-        t := <get-static-member-type> (n, i)
-      else
-        t := "Object"
-      end
-  
   get-static-member-type:
     (i, m) -> t
     where
       if(<GetStaticMemberType> (i, m)) then
         t := <GetStaticMemberType> (i, m)
-      else
-        t := "Object"
-      end
-  
-  apply-var-type(|var-types):
-    JSFieldAccess(e{Type(et)}, i) -> JSFieldAccess(e{Type(et)}, i){Type(t)}
-    with
-      if(<get-member-type> (et, i)) then
-        t := <get-member-type> (et, i)
       else
         t := "Object"
       end
@@ -131,15 +39,6 @@ rules
         t := <GetMemberType> (i, m)
       else
         t := <get-member-type> (<GetSuperClass> i, m)
-      end
-  
-  apply-var-type(|var-types):
-    JSCall(JSFieldAccess(e{Type(et)}, i){Type("Function")}, x*) -> JSCall(JSFieldAccess(e{Type(et)}, i{Type("Function")}), x*){Type(t)}
-    with
-      if(<get-member-return-type> (et, i)) then
-        t := <get-member-return-type> (et, i)
-      else
-        t := "Object"
       end
   
   get-member-return-type:

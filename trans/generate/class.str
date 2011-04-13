@@ -1,0 +1,68 @@
+module generate/class
+
+imports
+  libstratego-lib
+  libstratego-gpp
+  libstratego-aterm
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+
+  member-to-constructor(|c):
+    JSFunctionDecl("constructor", x*, s*) -> JSFunctionDecl(c, x*, s*)
+    
+  class-to-constructor(|c):
+    s* -> constructor
+    with
+      if <getfirst(member-to-constructor(|c))> s* then
+        constructor := <getfirst(member-to-constructor(|c))> s*
+      else
+        constructor := JSFunctionDecl(c, [], [])
+      end
+  
+  super-call-to-apply(|c):
+    FSSuperCall(i, x*) -> [
+      $[ [c].prototype.[i].apply(this, ["["] ],
+      xs,
+      $[ ["]"]) ]
+    ]
+    with
+      xs := <separate-by(|", ")> x*
+  
+  class-to-prototype(|c):
+    s* -> <map(class-to-prototype(|c))> s*
+  
+  class-to-prototype(|c):
+    JSVarDecl(FSIdentifier(p), v) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", v))
+  
+  class-to-prototype(|c):
+    JSVarDeclNoInit(i) -> []
+  
+  class-to-prototype(|c):
+    JSFunctionDecl(p, x*, s*) ->
+      result
+    with
+      if(<eq> (p, "constructor")) then
+        result := []
+      else
+        result := JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(JSLFieldAccess(c,"prototype"), p)), "=", JSFunctionExp(x*, s*)))
+      end
+
+  static-to-prototype(|c):
+    JSVarDecl(FSIdentifier(p), v) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(c, p)), "=", v))
+  
+  static-to-prototype(|c):
+    JSVarDeclNoInit(i) -> []
+  
+  class-to-prototype(|c):
+    FSStaticDecl(JSFunctionDecl(p, x*, s*)) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(c, p)), "=", JSFunctionExp(x*, s*)))
+
+  class-to-prototype(|c):
+    FSStaticDecl(s*) -> result
+    with
+      result := <map(static-to-prototype(|c))> s*
+  

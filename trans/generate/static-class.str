@@ -1,0 +1,215 @@
+module generate/static-class
+
+imports
+  libstratego-lib
+  libstratego-gpp
+  libstratego-aterm
+  include/FordScript
+  lib/editor-common.generated
+  check/record
+
+rules
+
+  get-member-access(|i) = getfirst(filter-member-access(|i))
+  
+  filter-member-access(|i):
+    (i, t) -> t
+
+  member-this-to-access(|member-access):
+    JSFieldAccess(JSThis(), m) -> JSFieldAccess(JSVar($[$[access]]), m)
+    with
+      if(<get-member-access(|m)> member-access) then
+        access := <get-member-access(|m)> member-access
+      else
+        access := "public"
+      end
+  
+  member-this-to-access(|member-access):
+    JSLFieldAccess(JSThis(), m) -> JSLFieldAccess(JSVar($[$[access]]), m)
+    with
+      if(<get-member-access(|m)> member-access) then
+        access := <get-member-access(|m)> member-access
+      else
+        access := "public"
+      end
+  
+  constructor-to-explicit(|c, m*):
+    JSFunctionDecl(c, x*, s*) -> [
+      $[
+	      function [c]() {
+          var $public, $protected, $private, $super;
+          
+          $private = {};
+          
+          if(this === function() { return this; }()) {
+            $protected = arguments["["]1["]"] || {};
+            $public = {};
+          } else {
+            $protected = {};
+            $public = {};
+          }
+          
+          $public.constructor = [c];
+          $public.$protected = $protected;
+          $public.[c]$private = $private;
+          
+	        ], m'*, $[
+	        
+	        if(this === function() { return this; }()) {
+            ], copy*, $[
+          } else {
+	          (function([x*]) {
+	            [s*]
+	          }).apply($public, arguments);
+	        }
+	        
+	        return $public;
+	      }
+	    ]
+    ]
+    with
+      m'* := <map(member-to-default)> m*;
+      copy* := <map(member-to-copy)> m*
+    
+  
+  constructor-to-explicit(|c, p, m*):
+    JSFunctionDecl(c, x*, s*) -> [
+      $[
+        function [c]() {
+          var $public, $protected, $private, $super;
+          
+          $private = {};
+          
+          if(this === function() { return this; }()) {
+            $protected = arguments["["]1["]"] || {};
+            $public = [p](arguments["["]0["]"], $protected);
+          } else {
+            $protected = {};
+            $public = [p]({}, $protected);
+          }
+          
+          (function() {
+	          $super = {};
+            var p;
+            for(p in $public) {
+              if($public.hasOwnProperty(p) && typeof $public["["]p["]"] === 'function') {
+                $super["["]p["]"] = $public["["]p["]"];
+              }
+            }
+            for(p in $protected) {
+              if($protected.hasOwnProperty(p) && typeof $protected["["]p["]"] === 'function') {
+                $super["["]p["]"] = $protected["["]p["]"];
+              }
+            }
+          })();
+          
+          $public.constructor = [c];
+          $public.$protected = $protected;
+          $public.[c]$private = $private;
+          
+          ], m'*, $[
+          
+          if(this === function() { return this; }()) {
+            ], copy*, $[
+          } else {
+            (function(], x*, $[) {
+              ], s*, $[
+            }).apply($public, arguments);
+          }
+          
+          return $public;
+        }
+      ]
+    ]
+    with
+      m'* := <map(member-to-default)> m*;
+      copy* := <map(member-to-copy)> m*
+    
+  super-call-to-apply:
+    FSSuperCall(i, x*) -> [
+      $[ $super.[i].apply(this, ["["] ],
+      xs,
+      $[ ["]"]) ]
+    ]
+    with
+      xs := <separate-by(|", ")> x*
+  
+  member-to-copy:
+    FSPublicDecl(x) -> <member-to-copy(|"public")> x
+  
+  member-to-copy:
+    FSProtectedDecl(x) -> <member-to-copy(|"protected")> x
+  
+  member-to-copy:
+    FSPrivateDecl(x) -> <member-to-copy(|"private")> x
+  
+  member-to-copy(|access):
+    JSVarDeclNoInit(FSIdentifier(i)) -> $[
+      if(arguments["["]0["]"].hasOwnProperty('[i]')) {
+        $[access].[i] = arguments["["]0["]"].[i];
+      }
+    ]
+  
+  member-to-copy(|access):
+    JSVarDecl(FSIdentifier(i), v) -> $[
+      if(arguments["["]0["]"].hasOwnProperty('[i]')) {
+        $[access].[i] = arguments["["]0["]"].[i];
+      }
+    ]
+  
+  member-to-copy(|access):
+    JSFunctionDecl(i, x*, s*) -> []
+  
+  member-to-copy(|access):
+    x* -> x'*
+    with
+      x'* := <map(member-to-copy(|access))> x*
+  
+  member-to-default:
+    FSPublicDecl(x) -> <member-to-default(|"public")> x
+  
+  member-to-default:
+    FSProtectedDecl(x) -> <member-to-default(|"protected")> x
+  
+  member-to-default:
+    FSPrivateDecl(x) -> <member-to-default(|"private")> x
+  
+  member-to-default(|access):
+    JSVarDeclNoInit(FSIdentifier(i)) -> JSExpStat(JSAssign(JSLFieldAccess(JSVar($[$[access]]), i), "=", FSUndefined()))
+  
+  member-to-default(|access):
+    JSVarDecl(FSIdentifier(i), v) -> JSExpStat(JSAssign(JSLFieldAccess(JSVar($[$[access]]), i), "=", v))
+  
+  member-to-default(|access):
+    JSFunctionDecl(i, x*, s*) -> JSExpStat(JSAssign(JSLFieldAccess(JSVar($[$[access]]), i), "=", JSFunctionExp(x*, s*)))
+  
+  member-to-default(|access):
+    x* -> x'*
+    with
+      x'* := <map(member-to-default(|access))> x*
+  
+  member-to-constructor(|c, m*):
+    JSFunctionDecl("constructor", x*, s*) ->
+      <constructor-to-explicit(|c, m*)> JSFunctionDecl(c, x*, s*)
+    
+  static-class-to-constructor(|c):
+    s* -> constructor
+    with
+      if <getfirst(member-to-constructor(|c, s*))> s* then
+        constructor := <constructor-to-explicit(|c, s*)> <getfirst(member-to-constructor(|c, s*))> s*
+      else
+        constructor := <constructor-to-explicit(|c, s*)> JSFunctionDecl(c, [], [])
+      end
+  
+  member-to-constructor(|c, m*):
+    FSPublicDecl(JSFunctionDecl("constructor", x*, s*)) -> JSFunctionDecl(c, x*, s*)
+    
+  static-class-to-constructor(|c, p):
+    s* -> constructor
+    with
+      if <getfirst(member-to-constructor(|c, s*))> s* then
+        constructor := <constructor-to-explicit(|c, p, s*)> <getfirst(member-to-constructor(|c, s*))> s*
+      else
+        constructor := <constructor-to-explicit(|c, p, s*)> JSFunctionDecl(c, [], [])
+      end
+  

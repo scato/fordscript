@@ -1,0 +1,26 @@
+module generate/prototype
+
+imports
+  libstratego-lib
+  libstratego-gpp
+  libstratego-aterm
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+
+
+  prototype-to-prototype(|p):
+        s* -> <map(prototype-to-prototype(|p))> s*
+  
+  prototype-to-prototype(|p):
+    JSVarDecl(FSIdentifier(m), v) ->
+      JSAssign(FSIdentifier(JSLFieldAccess(p, m)), "=", v)
+  
+  prototype-to-prototype(|p):
+    JSVarDeclNoInit(i) -> []
+  
+  prototype-to-prototype(|p):
+    JSFunctionDecl(m, x*, s*) ->
+      JSExpStat(JSAssign(FSIdentifier(JSLFieldAccess(p, m)), "=", JSFunctionExp(x*, s*)))
+

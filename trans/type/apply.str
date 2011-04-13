@@ -1,0 +1,57 @@
+module type/apply
+
+// apply-var-types :: add type annotations to the AST
+//                    (using a map created with collect-var-types)
+
+imports
+  libstratego-lib
+  include/FordScript
+  lib/editor-common.generated
+  type
+  check/record
+
+rules
+
+  apply-var-types(|var-types) = bottomup(try(apply-var-type(|var-types)))
+  
+  apply-var-type(|var-types):
+    JSVar(i) -> JSVar(i) {Type(t)}
+    with
+      if(<get-var-type(|i)> var-types) then
+        t := <get-var-type(|i)> var-types
+      else
+        t := "Object"
+      end
+  
+  get-var-type(|i) = getfirst(filter-var-type(|i))
+  
+  filter-var-type(|i):
+    (i, t) -> t
+
+  apply-var-type(|var-types):
+    JSFieldAccess(JSVar(n){Type("Class")}, i) -> JSFieldAccess(JSVar(n){Type("Class")}, i){Type(t)}
+    with
+      if(<get-static-member-type> (n, i)) then
+        t := <get-static-member-type> (n, i)
+      else
+        t := "Object"
+      end
+  
+  apply-var-type(|var-types):
+    JSFieldAccess(e{Type(et)}, i) -> JSFieldAccess(e{Type(et)}, i){Type(t)}
+    with
+      if(<get-member-type> (et, i)) then
+        t := <get-member-type> (et, i)
+      else
+        t := "Object"
+      end
+  
+  apply-var-type(|var-types):
+    JSCall(JSFieldAccess(e{Type(et)}, i){Type("Function")}, x*) -> JSCall(JSFieldAccess(e{Type(et)}, i{Type("Function")}), x*){Type(t)}
+    with
+      if(<get-member-return-type> (et, i)) then
+        t := <get-member-return-type> (et, i)
+      else
+        t := "Object"
+      end
+  

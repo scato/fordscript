@@ -1,6 +1,9 @@
-// 5.5 Parts
+module {
 
-mixin eventuality {
+// 5.5 Parts
+document.write("<div><strong>5.5 Parts</strong></div>");
+
+partial class eventuality {
     static var registry = {};
     
     function fire(event) {
@@ -66,3 +69,21 @@ mixin eventuality {
 
 }
 
+static class target adopts eventuality {
+  function test() {
+    var value = 0;
+    var listener = function(x) {
+      value += x;
+    };
+    this.on('a', listener, [3]);
+    assert(value === 0, "value is 0");
+    this.fire('a');
+    assert(value === 3, "value turned to 3");
+  }
+}
+
+var t = new target();
+
+t.test();
+
+}

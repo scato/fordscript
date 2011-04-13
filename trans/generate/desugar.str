@@ -1,0 +1,71 @@
+module generate/desugar
+
+imports
+  libstratego-lib
+  libstratego-gpp
+  libstratego-aterm
+  include/FordScript
+  lib/editor-common.generated
+  generate/class
+  generate/prototype
+  generate/static-class
+  generate/collect
+
+rules
+
+  desugar:
+    FSModule(s*) -> JSExpStat(JSCall(JSBracket(JSFunctionExp([], s*)), []))
+  
+  desugar:
+    FSBlock(s*) -> s*
+  
+  desugar:
+    FSLambdaExp(x*, exp) -> JSFunctionExp(x*, [JSReturn(exp)])
+  
+  desugar:
+    FSTypedLambdaExp(x*, t, exp) -> FSLambdaExp(x*, exp)
+  
+  desugar:
+    FSTypedIdentifier(i, t) -> FSIdentifier(i)
+  
+  desugar:
+    FSTypedFunctionDecl(i, x*, t, s*) -> JSFunctionDecl(i, x*, s*)
+  
+  desugar:
+    FSTypedFunctionExp(x*, t, s*) -> JSFunctionExp(x*, s*)
+
+  desugar:
+    FSStaticClassDecl(c, Some(FSExtendsClause(p)), a, s*){Anno("member-access", member-access)} -> <static-class-to-constructor(|c, p)> s'*
+    with
+      s'* := <map(bottomup(try(member-this-to-access(|member-access))))> <map(bottomup(try(super-call-to-apply)))> s*
+  
+  desugar:
+    FSStaticClassDecl(c, None(), a, s*){Anno("member-access", member-access)} -> <static-class-to-constructor(|c)> s'*
+    with
+      s'* := <map(bottomup(try(member-this-to-access(|member-access))))> <map(bottomup(try(super-call-to-apply(|"Object"))))> s*
+
+  
+  desugar:
+    FSExtendedClassDecl(c, FSType(e), s*) -> [
+      <static-class-to-constructor(|c)> s'*,
+      $[ [c].prototype = function() { var c = function() {}; c.prototype = [e].prototype; var p = new c(); p.constructor = c; return p; }(); ],
+      <map(try(class-to-prototype(|c)))> s'*
+    ]
+    with
+      s'* := <map(bottomup(try(super-call-to-apply(|e))))> s*
+  
+  desugar:
+    FSClassAugmentation(c, s*) ->
+      <map(try(class-to-prototype(|c)))> s*
+  
+  desugar:
+    FSPrototypeDecl(p, s*) -> [
+      $[ var [p] = {}; ],
+      <map(try(prototype-to-prototype(|p)))> s*
+    ]
+
+  desugar:
+    FSExtendedPrototypeDecl(p, FSType(e), s*) -> [
+      $[ var [p] = function() { var c = function() {}; c.prototype = [e]; var p = new c(); return p; }(); ],
+      <map(try(prototype-to-prototype(|p)))> s*
+    ]

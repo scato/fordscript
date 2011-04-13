@@ -50,12 +50,28 @@ exports
     "static" FSVarStat -> FSClassBodyDecl {cons("FSStaticDecl")}
     "static" FSFuncStat -> FSClassBodyDecl {cons("FSStaticDecl")}
     
+    %% static classes
+    "static" "class" JSID FSExtendsClause? FSAdoptsClause? "{" FSStaticClassBodyDecl* "}" -> JSStat {cons("FSStaticClassDecl")}
+    "extends" JSID -> FSExtendsClause {cons("FSExtendsClause")}
+    "adopts" {JSID ","}* -> FSAdoptsClause {cons("FSAdoptsClause")}
+    FSVarStat  -> FSStaticClassBodyDecl {cons("FSPublicDecl")}
+    FSFuncStat -> FSClassBodyDecl {cons("FSPublicDecl")}
+    "public" FSVarStat  -> FSStaticClassBodyDecl {cons("FSPublicDecl")}
+    "public" FSFuncStat  -> FSStaticClassBodyDecl {cons("FSPublicDecl")}
+    "protected" FSVarStat  -> FSStaticClassBodyDecl {cons("FSProtectedDecl")}
+    "protected" FSFuncStat  -> FSStaticClassBodyDecl {cons("FSProtectedDecl")}
+    "private" FSVarStat  -> FSStaticClassBodyDecl {cons("FSPrivateDecl")}
+    "private" FSFuncStat  -> FSStaticClassBodyDecl {cons("FSPrivateDecl")}
+    
     %% type augmentation
     "augment" JSID "{" FSClassBodyDecl* "}" -> JSStat {cons("FSClassAugmentation")}
     
     %% prototypes
     "prototype" JSID "{" FSClassBodyDecl* "}"                  -> JSStat {cons("FSPrototypeDecl")}
     "prototype" JSID "extends" FSType "{" FSClassBodyDecl* "}" -> JSStat {cons("FSExtendedPrototypeDecl")}
+    
+    %% modules
+    "module" "{" JSStat* "}" -> JSStat {cons("FSModule")}
 
   context-free priorities
     JSExp "in" JSExp            -> JSExp

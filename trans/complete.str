@@ -6,7 +6,8 @@ imports
 //  libstratego-aterm
   include/FordScript
   lib/editor-common.generated
-  check
+  check/collect
+  check/record
   type
 
 rules

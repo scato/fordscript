@@ -1,0 +1,76 @@
+module type/collect
+
+// collect-var-types :: create a map by collecting all var types
+//                      (not by traversing the tree and recording them in a strategy)
+
+imports
+  libstratego-lib
+  include/FordScript
+  lib/editor-common.generated
+
+rules
+
+  collect-var-types = map(collect-var-type); flatten-list
+  
+  collect-var-type:
+    JSVarDecl(FSTypedIdentifier(i, FSType(t)), v) -> (i, t)
+    
+  collect-var-type:
+    JSFunctionDecl(i, x*, s*) -> (i, "Function")
+    
+  collect-var-type:
+    FSTypedFunctionDecl(i, x*, t, s*) -> (i, "Function")
+    // TODO: store return type for non-member functions
+    
+  // a little bit of type inference
+  // TODO: mark as types first and then use inference
+  
+  collect-var-type:
+    JSVarDecl(i, JSNew(JSVar(t), [x*])) -> (i, t)
+    
+  collect-var-type:
+    JSVarDecl(i, JSIntLit(v)) -> (i, "Number")
+    
+  collect-var-type:
+    JSVarDecl(i, JSStringLit(v)) -> (i, "String")
+    
+  collect-var-type:
+    JSVarDecl(i, JSRegex(a, b)) -> (i, "RegExp")
+    
+  collect-var-type:
+    JSVarDecl(i, JSTrue()) -> (i, "Boolean")
+    
+  collect-var-type:
+    JSVarDecl(i, JSFalse()) -> (i, "Boolean")
+    
+  collect-var-type:
+    JSVarDecl(i, JSArrayCons(a)) -> (i, "Array")
+    
+  collect-var-type:
+    JSVarDecl(i, JSFunctionExp(a, b)) -> (i, "Function")
+    
+  collect-var-type:
+    JSVarDecl(i, FSTypedFunctionExp(a, b, c)) -> (i, "Function")
+    
+  collect-var-type:
+    JSVarDecl(i, FSLambdaExp(a, b)) -> (i, "Function")
+    
+  collect-var-type:
+    JSVarDecl(i, FSTypedLambdaExp(a, b, c)) -> (i, "Function")
+    
+  collect-var-type:
+    FSBlock(s*) -> <map(collect-var-type)> s*
+    
+  // classes are classes
+  
+  collect-var-type:
+    FSClassDecl(i, s*) -> (i, "Class")
+  
+  collect-var-type:
+    FSExtendedClassDecl(i, FSType(e), s*) -> (i, "Class")
+  
+  // ignore the rest
+  
+  collect-var-type:
+    t -> []
+  
